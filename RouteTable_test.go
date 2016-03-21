@@ -1,0 +1,69 @@
+package routetable
+
+import (
+	"testing"
+)
+
+func Test_RouteTable_Routes(t *testing.T) {
+	table, err := NewRouteTable()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	defer func() {
+		if err := table.Close(); err != nil {
+			t.Error(err.Error())
+		}
+	}()
+
+	rows, err := table.Routes()
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	for _, row := range rows {
+		t.Logf(
+			"%v--->%v---->%v",
+			Inet_ntoa(row.ForwardDest, false),
+			Inet_ntoa(row.ForwardMask, false),
+			Inet_ntoa(row.ForwardNextHop, false),
+		)
+	}
+}
+
+func Test_RouteTable_AddRoute(t *testing.T) {
+	table, err := NewRouteTable()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	defer func() {
+		if err := table.Close(); err != nil {
+			t.Error(err.Error())
+		}
+	}()
+
+	local_ip, err := GetLocalIp()
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	local_ip_uint := Inet_aton(local_ip, false)
+
+	rows, err := table.Routes()
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	for _, row := range rows {
+		if row.ForwardNextHop == local_ip_uint {
+			// clone已由的路由,防止自定义出错
+			// route add 14.215.177.37 mask 255.255.255.255 本地ip
+			row.ForwardDest = Inet_aton("14.215.177.37", false)
+			row.ForwardMask = Inet_aton("255.255.255.255", false)
+
+			if err := table.AddRoute(row); err != nil {
+				t.Error(err.Error())
+			}
+			break
+		}
+	}
+}
